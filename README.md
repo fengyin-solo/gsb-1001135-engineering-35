@@ -17,6 +17,8 @@
 ├── backend/                  FastAPI（Python） 后端
 │   ├── app/routers/          每个业务模块一组接口
 │   ├── app/services/         业务规则与状态流转
+│   ├── app/release/          总览发布：闸门、影子验收、构建包、事务编排
+│   ├── tests/                发布闸门与影子验收规则测试（标准库 unittest）
 │   └── app/store.py          内存数据仓库与示例数据
 ├── .gitignore
 └── docker-compose.yml
@@ -74,3 +76,32 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 总览发布闸门与影子验收
+
+道桥养护态势总览（`/api/overview`）只能经发布编排器上线，入口页面为「总览发布」。
+
+- **四道闸门单向推进**：依赖检查 → 样例回放 → 差异裁定 → 切换流量
+  （`POST /api/release/releases/{批次}/gates/{闸门}`）。跳级发布、倒序回滚、重复推进已
+  完成闸门一律 `409` 拒绝；倒序回滚另有 `/rollback/{闸门}` 入口也只返回拒绝。
+- **失败即保留旧版本**：任何闸门失败都不会把总览写成零；候选总览为空时构建包直接拒绝。
+  切换阶段失败时，构建包与结构迁移在同一事务边界内整批回退（迁移 down + 仓库快照还原）。
+- **发布前影子验收**：`POST /api/release/shadow-preview` 在隔离环境重放巡查、病害、桥隧
+  事件，再与现网采样逐项对照。时区、设备时钟、业务日基准冲突一律以辖区运营约定为准
+  （`app/release/clocks.py`：Asia/Shanghai、业务日切点 06:00、设备钟容忍 5 分钟）；
+  旧样例维持此前批次，现网旧口径只用于对照暴露差异；约定未覆盖的冲突阻断裁定。
+- **结论三处回写**：发布台账（append-only，历史保留当时批次）、路段待办（路段清单写
+  「发布批次」列）、告警清单。
+- **重复发布幂等**：版本签名只由总览内容、迁移结构与修订说明决定，相同签名重复发布返回
+  既有批次。
+- **基础设施门控**：队列、地图服务、缓存任一不可达时，依赖检查失败、切换流量前复查也
+  拒绝转换流量（`POST /api/release/infra/{queue|map|cache}` 可演练）。
+- **编排锁与断点续跑**：同一时刻只有一个发布者；回放逐项落检查点，连接断开后从
+  `/resume` 查看未完成项并续跑，已灌入样例不重复灌入。
+
+运行规则测试（无需安装 FastAPI，仅标准库）：
+
+```bash
+cd backend
+python3 -m unittest discover -s tests
+```

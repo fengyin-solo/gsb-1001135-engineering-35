@@ -24,5 +24,6 @@ from app.routers import bearing as router_bearing
 from app.routers import project as router_project
 from app.routers import vehicle as router_vehicle
 from app.routers import material as router_material
+from app.routers import release as router_release
 
-ROUTERS = [router_road_section, router_patrol, router_pavement, router_bridge, router_bridge_info, router_tunnel, router_traffic_facility, router_drainage, router_green, router_lighting, router_winter, router_flood, router_slope, router_expansion, router_bearing, router_project, router_vehicle, router_material]
+ROUTERS = [router_road_section, router_patrol, router_pavement, router_bridge, router_bridge_info, router_tunnel, router_traffic_facility, router_drainage, router_green, router_lighting, router_winter, router_flood, router_slope, router_expansion, router_bearing, router_project, router_vehicle, router_material, router_release]
