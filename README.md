@@ -74,3 +74,30 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 道桥养护态势总览发布闸门
+
+前端「发布闸门」页（`/release`）与 `backend/app/release/` 实现跨端发布管控，
+闸门严格按 **依赖检查 → 影子验收 → 差异裁定 → 切换流量** 单向推进：
+
+- **跳级发布、倒序回滚一律拒绝**；唯一允许的回退是对当前生效批次的「整批回退」。
+- **发布前影子验收**：在隔离环境重放巡查、病害、桥隧事件（`release/shadow.py`），
+  再与现网采样逐项对照（match / diff / conflict / new），隔离重放不写现网。
+- **冲突以辖区运营约定裁决**：时区、设备时钟偏差、业务日切换点以
+  `release/jurisdiction.py` 的辖区约定为准（如城东 08:00 业务日切换、300 秒时钟
+  容忍）；约定未覆盖的冲突保持 unresolved 并拦截差异裁定。
+- **旧样例维持此前批次**：约定带版本号并入版本签名，台账只追加，历史记录保留
+  当时批次与约定版本。
+- **失败保留旧版本、总览不写成零**：构建包、结构迁移与整批回退使用同一事务边界
+  （`release/build.py` 的 `build_transaction`），中途失败整批恢复到事务前快照。
+- **重复发布幂等**：版本签名（事件内容 + 辖区约定）相同直接返回首次批次，
+  不重复灌入样例。
+- **外部依赖**：队列、地图服务、缓存任一不可达，依赖检查不通过，且切流前会再
+  复核一次——不可达时禁止转换流量（`POST /api/release/dependencies/fault` 可演练）。
+- **编排锁**：同一时刻只允许一个发布者；检查连接断开后租约到期，可对同批次
+  「从未完成项复位」（resume），已灌入隔离环境的样例按批次去重，不重灌。
+- **结论三处回写**：发布台账（`/api/release/ledger`）、路段待办
+  （`/api/release/road_todos`、`/api/road_section/todos`）、告警清单
+  （`/api/release/alerts`）。
+
+后端测试仅依赖标准库：`cd backend && python3 -m unittest discover -s tests -v`。

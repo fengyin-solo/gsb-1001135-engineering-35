@@ -34,5 +34,11 @@ def health() -> dict[str, object]:
 
 @app.get("/api/overview")
 def overview() -> dict[str, object]:
-    """运营概览：把各业务模块的待处理量汇总成看板卡片。"""
-    return store.overview()
+    """运营概览：返回当前生效的发布版本总览。
+
+    发布成功后展示新批次数据；任何闸门失败或整批回退都保留旧版本，
+    未发布时为内置基线，接口永远不会返回全零总览。
+    """
+    from app.release.service import release_service
+
+    return release_service.active_overview()

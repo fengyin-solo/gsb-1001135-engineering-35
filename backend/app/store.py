@@ -21,6 +21,20 @@ class Store:
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
 
+    def business_tables(self) -> dict[str, list[dict[str, Any]]]:
+        """全部业务表的引用：发布事务进入时据此做整库快照。"""
+        return self._tables
+
+    def replace_table(self, module: str, rows: list[dict[str, Any]]) -> None:
+        """发布/整批回退在同一事务边界内整表替换业务数据。"""
+        self._tables[module] = rows
+
+    def reset_to_seed(self) -> None:
+        """恢复到种子数据（测试用），保证发布事务测试互不污染。"""
+        self._tables = {
+            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+        }
+
     def find(self, module: str, entry_id: int) -> dict[str, Any] | None:
         for row in self.rows(module):
             if int(row.get("id", 0)) == entry_id:

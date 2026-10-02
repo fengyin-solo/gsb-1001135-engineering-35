@@ -30,6 +30,15 @@ def list_entries(
     return PageResult(items=items, total=total, page=page, size=size)
 
 
+@router.get("/todos")
+def release_todos(road_ref: str | None = None) -> dict[str, Any]:
+    """影子验收差异裁定后回写到路段清单的待办；按路段名称可过滤。"""
+    from app.release.service import release_service
+
+    items = release_service.road_todos(road_ref)
+    return {"module": "road_section", "total": len(items), "items": items}
+
+
 @router.get("/{entry_id}", response_model=dict)
 def get_entry(entry_id: int) -> dict:
     """读取单条管养路段明细；不存在时给出可读的错误说明。"""
